@@ -1,0 +1,307 @@
+// ==UserScript==
+// @name Wplace Overlay
+// @namespace https://github.com/FrodoCompacto
+// @версия 1.4
+// @description Разрешите просматривать, перемещать, изменять размеры, исправлять и сохранять персонализированное наложение без wplace.live с непрозрачным ползунком и исправленным пользовательским интерфейсом.
+// @match https://wplace.live/
+// @значок https://www.google.com/s2/favicons?sz=64&domain=wplace.live
+// @grant none
+// @license MIT
+// ==/UserScript==
+
+пусть overlayMode = localStorage.getItem("overlayMode") || "over";
+пусть opacityValue = localStorage.getItem("overlayOpacity") || "1.0";
+пусть isLocked = localStorage.getItem("isLocked") === "истина";
+пусть overlayImg = null;
+пусть originalWidth = 300;
+пусть originalHeight = 300;
+
+функция createOverlayImage(url) {
+    если (!overlayImg) {
+        overlayImg = document.createElement("img");
+        overlayImg.id = "пользовательский-оверлей";
+        overlayImg.style.position = "absolute";
+        overlayImg.style.top = localStorage.getItem("overlayTop") || "0 пикселей";
+        overlayImg.style.left = localStorage.getItem("overlayLeft") || "0px";
+        overlayImg.style.pointerEvents = isLocked ? "none" : "auto";
+        overlayImg.style.zIndex = "9999";
+        overlayImg.style.resize = isLocked ? "none" : "both";
+        overlayImg.style.overflow = "авто";
+        overlayImg.style.cursor = isLocked ? "default" : "переместить";
+        overlayImg.draggable = false;
+
+        enableDragging(overlayImg);
+        enableResizePersistence(overlayImg);
+        document.body.appendChild(overlayImg);
+    }
+
+    overlayImg.onload = () => {
+        originalWidth = overlayImg.naturalWidth;
+        originalHeight = overlayImg.naturalHeight;
+
+        const saveRatio = parseFloat(localStorage.getItem("overlayRatio"));
+        если (!isNaN(savedRatio)) {
+            overlayImg.style.width = originalWidth * savedRatio + "px";
+            overlayImg.style.height = originalHeight * savedRatio + "px";
+        } еще {
+            overlayImg.style.width = localStorage.getItem("overlayWidth") || "300px";
+            overlayImg.style.height = localStorage.getItem("overlayHeight") || "300px";
+        }
+    };
+
+    overlayImg.src = url;
+    overlayImg.style.mixBlendMode = overlayMode === "aus" ? "normal" : overlayMode;
+    overlayImg.style.opacity = opacityValue;
+    localStorage.setItem("overlayImage", url);
+}
+
+функция enableDragging(элемент) {
+    пусть isDragging = false;
+    пусть startX, startY, startLeft, startTop;
+
+    элемент.addEventListener("mousedown", (e) => {
+        если (isLocked) вернуть;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseInt(элемент.стиль.left) || 0;
+        startTop = parseInt(элемент.стиль.топ) || 0;
+        e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+        если (!isDragging || isLocked) вернуть;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        элемент.стиль.left = `${startLeft + dx}px`;
+        элемент.стиль.топ = `${startTop + dy}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+        если (overlayImg) {
+            localStorage.setItem("overlayLeft", overlayImg.style.left);
+            localStorage.setItem("overlayTop", overlayImg.style.top);
+        }
+        isDragging = false;
+    });
+}
+
+функция enableResizePersistence(элемент) {
+    новый ResizeObserver(() => {
+        localStorage.setItem("overlayWidth", element.style.width);
+        localStorage.setItem("overlayHeight", element.style.height);
+    }).observe(элемент);
+}
+
+функция patchUI() {
+    если (document.getElementById("overlay-container")) вернуть;
+
+    const container = document.createElement("div");
+    контейнер.id = "overlay-container";
+    контейнер.стиль.позиция = "абсолютная";
+    контейнер.стиль.топ = "50%";
+    контейнер.стиль.трансформировать = "translateY(-50%)";
+    контейнер.стиль.право = "10px";
+    контейнер.style.zIndex = "9999";
+    контейнер.стиль.отображение = "flex";
+    контейнер.стиль.flexDirection = "столбец";
+    контейнер.стиль.зазор = "6px";
+    container.style.fontFamily = "sans-serif";
+    контейнер.стиль.цвет = "белый";
+
+    const btn = (текст, onclick) => {
+        const b = document.createElement("button");
+        б.textContent = текст;
+        б.onclick = onclick;
+        b.style.backgroundColor = "#0e0e0e7f";
+        b.style.color = "белый";
+        b.style.border = "solid 1px #1d1d1d7f";
+        b.style.borderRadius = "4px";
+        b.style.padding = "5px 10px";
+        b.style.cursor = "указатель";
+        b.style.backdropFilter = "blur(2px)";
+        возврат б;
+    };
+
+    const blendBtn = btn(`Modo: ${overlayMode}`, () => {
+        const modos = ["aus", "over", "difference", "out"];
+        overlayMode = modos[(modos.indexOf(overlayMode) + 1) % modos.length];
+        blendBtn.textContent = `Режим: ${overlayMode}`;
+        если (overlayImg) overlayImg.style.mixBlendMode = overlayMode === "aus" ? "normal" : overlayMode;
+        localStorage.setItem("overlayMode", overlayMode);
+    });
+
+    const opacityContainer = document.createElement("div");
+    opacityContainer.style.display = "flex";
+    opacityContainer.style.flexDirection = "column";
+    opacityContainer.style.gap = "4px";
+    opacityContainer.style.backgroundColor = "#0e0e0e7f";
+    opacityContainer.style.padding = "5px";
+    opacityContainer.style.borderRadius = "4px";
+    opacityContainer.style.border = "solid 1px #1d1d1d7f";
+    opacityContainer.style.backdropFilter = "blur(2px)";
+
+
+    const opacityLabel = document.createElement("label");
+    opacityLabel.textContent = `Непрозрачность: ${Math.round(parseFloat(opacityValue) * 100)}%`;
+    opacityLabel.style.textAlign = "center";
+    opacityLabel.style.fontSize = "12px";
+
+    const opacitySlider = document.createElement("input");
+    непрозрачностьSlider.type = "диапазон";
+    непрозрачностьSlider.min = "0";
+    непрозрачностьSlider.max = "1";
+    непрозрачностьSlider.step = "0.01";
+    непрозрачностьSlider.value = непрозрачностьValue;
+    непрозрачностьSlider.стиль.ширина = "100%";
+
+    opacitySlider.oninput = (e) => {
+        opacityValue = e.target.value;
+        opacityLabel.textContent = `Непрозрачность: ${Math.round(parseFloat(opacityValue) * 100)}%`;
+        если (overlayImg) {
+            overlayImg.style.opacity = opacityValue;
+        }
+        localStorage.setItem("overlayOpacity", opacityValue);
+    };
+
+    opacityContainer.append(opacityLabel, opacitySlider);
+
+    const lockBtn = btn(isLocked ? "🔒 Bloqueado" : "🔓 Editável", () => {
+        isLocked = !isLocked;
+        lockBtn.textContent = isLocked? «🔒 Bloqueado»: «🔓 Editável»;
+        если (overlayImg) {
+            overlayImg.style.pointerEvents = isLocked ? "none" : "auto";
+            overlayImg.style.cursor = isLocked ? "default" : "переместить";
+            overlayImg.style.resize = isLocked ? "none" : "both";
+        }
+        localStorage.setItem("isLocked", isLocked);
+    });
+
+    const resetBtn = btn("Переопределить наложение", () => {
+        localStorage.clear();
+        если (overlayImg) overlayImg.remove();
+        overlayImg = null;
+        alert("Наложение удаления и сброса настроек.");
+        location.reload();
+    });
+
+    const centerBtn = btn("Централизатор на теле", () => {
+        если (overlayImg) {
+            overlayImg.style.left = `${(window.innerWidth - overlayImg.offsetWidth) / 2}px`;
+            overlayImg.style.top = `${(window.innerHeight - overlayImg.offsetHeight) / 2}px`;
+            localStorage.setItem("overlayLeft", overlayImg.style.left);
+            localStorage.setItem("overlayTop", overlayImg.style.top);
+        }
+    });
+
+    const sizeContainer = document.createElement("div");
+    sizeContainer.style.display = "flex";
+    sizeContainer.style.flexDirection = "column";
+    sizeContainer.style.gap = "4px";
+    // --- КОРРЕКЦИЯ ДОСТУПНОГО КОНТРАСТА ---
+    sizeContainer.style.backgroundColor = "#0e0e0e7f";
+    sizeContainer.style.padding = "8px"; // Um pouco mais de espaço interno
+    sizeContainer.style.borderRadius = "4px";
+    sizeContainer.style.border = "solid 1px #1d1d1d7f";
+    sizeContainer.style.backdropFilter = "blur(2px)";
+    // --- FIM DA CORREÇÃO ---
+
+
+    // Руководство по Таманьо
+    const manualSizeRow = document.createElement("div");
+    manualSizeRow.style.display = "flex";
+    manualSizeRow.style.gap = "4px";
+    manualSizeRow.style.alignItems = "center";
+
+    const widthInput = document.createElement("input");
+    widthInput.type = "число";
+    widthInput.placeholder = "Largura";
+    widthInput.style.width = "80px";
+
+    const heightInput = document.createElement("input");
+    heightInput.type = "число";
+    heightInput.placeholder = "Altura";
+    heightInput.style.width = "80px";
+
+    const applySizeBtn = btn("Aplicar", () => {
+        если (overlayImg) {
+            если (widthInput.value) overlayImg.style.width = widthInput.value + "px";
+            если (heightInput.value) overlayImg.style.height = heightInput.value + "px";
+            localStorage.setItem("overlayWidth", overlayImg.style.width);
+            localStorage.setItem("overlayHeight", overlayImg.style.height);
+        }
+    });
+    manualSizeRow.append("Px:", widthInput, heightInput, applySizeBtn);
+
+    // Escala por ratio fixo
+    const ratioRow = document.createElement("div");
+    ratioRow.style.display = "flex";
+    ratioRow.style.gap = "4px";
+    ratioRow.style.alignItems = "center";
+
+    const ratioInput = document.createElement("input");
+    ratioInput.type = "число";
+    ratioInput.placeholder = "Эскала";
+    ratioInput.step = "0.1";
+    ratioInput.style.width = "60px";
+
+    const RatioBtn = btn("Апликар", () => {
+        если (overlayImg && ratioInput.value) {
+            константа отношение = parseFloat(ratioInput.value);
+            overlayImg.style.width = (исходнаяШирина * соотношение) + "px";
+            overlayImg.style.height = (originalHeight * ratio) + "px";
+            localStorage.setItem("overlayWidth", overlayImg.style.width);
+            localStorage.setItem("overlayHeight", overlayImg.style.height);
+            localStorage.setItem("overlayRatio", ratio);
+        }
+    });
+    ratioRow.append("Escala:", ratioInput, ratioBtn);
+
+    const restreSizeBtn = btn("Оригинал Таманхо", () => {
+        если (overlayImg) {
+            overlayImg.style.width = originalWidth + "px";
+            overlayImg.style.height = originalHeight + "px";
+            localStorage.setItem("overlayWidth", overlayImg.style.width);
+            localStorage.setItem("overlayHeight", overlayImg.style.height);
+            localStorage.removeItem("overlayRatio");
+            ratioInput.value = "1";
+        }
+    });
+
+    sizeContainer.append(manualSizeRow, ratioRow, restoreSizeBtn);
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "файл";
+    fileInput.accept = "image/*";
+    fileInput.style.display = "none";
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        если (файл) {
+            const reader = new FileReader();
+            reader.onload = (event) => createOverlayImage(event.target.result);
+            читатель.readAsDataURL(файл);
+        }
+    };
+
+    const uploadBtn = btn("Escolher Imagem", () => fileInput.click());
+
+    контейнер.append(fileInput, uploadBtn, blendBtn, opacityContainer, lockBtn, centerBtn, sizeContainer, resetBtn);
+    document.body.appendChild(контейнер);
+
+    setTimeout(() => {
+        если (overlayImg) {
+            widthInput.value = parseInt(overlayImg.style.width) || 300;
+            heightInput.value = parseInt(overlayImg.style.height) || 300;
+        }
+        RatioInput.value = localStorage.getItem("overlayRatio") || «1»;
+    }, 500);
+}
+
+const observer = new MutationObserver(() => patchUI());
+observer.observe(document.body, { childList: true, subtree: true });
+патчUI();
+
+const savedImage = localStorage.getItem("overlayImage");
+если (сохраненноеИзображение) {
+    createOverlayImage(сохраненное изображение);
+}
